@@ -218,7 +218,10 @@
 
 .retro-trackline {
   overflow: hidden;
+  min-width: 0;
+  max-width: 100%;
   color: var(--lcd);
+  pointer-events: none;
   white-space: nowrap;
   text-overflow: clip;
   font-family: "Courier New", monospace;
@@ -226,6 +229,37 @@
   font-weight: 800;
   line-height: 11px;
   text-transform: uppercase;
+}
+
+.retro-trackline-marquee,
+.retro-trackline-item {
+  display: inline-flex;
+  min-width: max-content;
+}
+
+.retro-trackline-item {
+  padding-right: 16px;
+}
+
+.retro-trackline-item[aria-hidden='true'] {
+  display: none;
+}
+
+.retro-trackline[data-overflow='true'] .retro-trackline-item[aria-hidden='true'] {
+  display: inline-flex;
+}
+
+.retro-trackline[data-overflow='true'] .retro-trackline-marquee {
+  animation: retro-trackline-marquee 12s linear infinite;
+}
+
+@keyframes retro-trackline-marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
 }
 
 .retro-badges {

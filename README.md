@@ -129,4 +129,4 @@ src-tauri/      Tauri Rust shell and WebView2 configuration
 
 ## MVP Boundaries
 
-SkinDeck is not a Spotify client replacement. It uses Spotify's official APIs and SDK, does not manage playlists, does not modify the official Spotify client, and does not redistribute Spotify content.
+SkinDeck is not a Spotify client replacement. It uses Spotify's official APIs and SDK, it can only view public playlists.

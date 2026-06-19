@@ -1,5 +1,5 @@
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { useState, type CSSProperties, type FormEvent, type MouseEvent } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type MouseEvent } from 'react';
 import type { SpotifyPlaylist, SpotifyTrackSearchResult } from '../../../shared/types';
 import type { SkinProps } from '../SkinProps';
 import { formatDuration, progressPercent } from '../../utils/time';
@@ -36,6 +36,9 @@ export function WinampRetroSkin({
   const [listMode, setListMode] = useState<ListMode>('default');
   const [isSearching, setSearching] = useState(false);
   const [isLoadingPlaylists, setLoadingPlaylists] = useState(false);
+  const tracklineRef = useRef<HTMLDivElement>(null);
+  const tracklineTextRef = useRef<HTMLSpanElement>(null);
+  const [tracklineOverflow, setTracklineOverflow] = useState(false);
   const timeText = playback.durationMs ? formatDuration(playback.progressMs) : '00:00';
   const titleText = `${playback.artists[0] ?? 'SKINDECK'} - ${playback.title || 'NO ACTIVE TRACK'}`;
   const currentTitle = `${playback.artists.join(', ') || 'SkinDeck'} - ${playback.title || 'No active track'}`;
@@ -64,6 +67,20 @@ export function WinampRetroSkin({
   const liveSpectrum = audioLevels.bands.length
     ? audioLevels.bands.slice(0, spectrum.length).map((level) => Math.round(Math.max(4, Math.min(100, level * 100))))
     : spectrum;
+
+  useEffect(() => {
+    const trackline = tracklineRef.current;
+    const tracklineText = tracklineTextRef.current;
+    if (!trackline || !tracklineText) return;
+
+    const updateOverflow = () => {
+      setTracklineOverflow(tracklineText.scrollWidth > trackline.clientWidth);
+    };
+
+    updateOverflow();
+    window.addEventListener('resize', updateOverflow);
+    return () => window.removeEventListener('resize', updateOverflow);
+  }, [titleText]);
 
   function seekFromClick(event: MouseEvent<HTMLDivElement>) {
     if (!playback.durationMs) return;
@@ -199,7 +216,12 @@ export function WinampRetroSkin({
 
           <div className="retro-readout">
             <div className="retro-timecode">{timeText}</div>
-            <div className="retro-trackline">1. {titleText}</div>
+            <div className="retro-trackline" ref={tracklineRef} data-overflow={tracklineOverflow}>
+              <span className="retro-trackline-marquee">
+                <span className="retro-trackline-item" ref={tracklineTextRef}>1. {titleText}</span>
+                <span className="retro-trackline-item" aria-hidden="true">1. {titleText}</span>
+              </span>
+            </div>
             <div className="retro-badges">
               <span>128</span>
               <small>kbps</small>
