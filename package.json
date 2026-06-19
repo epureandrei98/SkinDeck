@@ -1,0 +1,36 @@
+{
+  "name": "skindeck",
+  "version": "0.1.0",
+  "description": "Open-source skinnable desktop companion/controller for Spotify playback.",
+  "private": true,
+  "main": "out/main/index.mjs",
+  "scripts": {
+    "postinstall": "node node_modules/electron/install.js",
+    "setup:electron": "node node_modules/electron/install.js",
+    "dev": "node scripts/electron-vite.cjs dev",
+    "dev:gpu": "node scripts/electron-vite.cjs dev --gpu",
+    "dev:gpu-off": "node scripts/electron-vite.cjs dev --gpu-off",
+    "dev:edge": "node scripts/edge-wrapper.cjs",
+    "dev:edge:fresh": "node scripts/edge-wrapper.cjs --reset-profile",
+    "dev:edge:frameless": "node scripts/edge-wrapper.cjs --frameless",
+    "dev:edge:kiosk": "node scripts/edge-wrapper.cjs --kiosk",
+    "dev:renderer": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && electron-vite build",
+    "preview": "node scripts/electron-vite.cjs preview"
+  },
+  "dependencies": {
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.30",
+    "@types/react": "^18.3.23",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^4.4.1",
+    "electron": "https://github.com/castlabs/electron-releases#v42.3.3+wvcus",
+    "electron-vite": "^2.3.0",
+    "typescript": "^5.8.3",
+    "vite": "^5.4.19"
+  }
+}

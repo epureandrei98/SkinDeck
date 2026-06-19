@@ -1,0 +1,209 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+  background: #111317;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+:root {
+  --wco-height: 0px;
+}
+
+button,
+select {
+  font: inherit;
+  -webkit-app-region: no-drag;
+}
+
+button {
+  cursor: pointer;
+}
+
+.app-shell {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  color: #f4f6f8;
+  background: #111317;
+  -webkit-app-region: drag;
+}
+
+:root.wco-visible .app-shell {
+  padding-top: max(var(--wco-height), env(titlebar-area-height, 0px));
+}
+
+.widget-frame {
+  width: 100%;
+  height: 100%;
+}
+
+.skin {
+  width: 100%;
+  height: 100%;
+}
+
+.track-title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 15px;
+  font-weight: 750;
+}
+
+.track-meta {
+  overflow: hidden;
+  margin-top: 4px;
+  color: #afbac6;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 12px;
+}
+
+.progress-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 36px;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+  color: #b9c5d1;
+  font-size: 11px;
+}
+
+.progress-track {
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #38424e;
+}
+
+.progress-track span {
+  display: block;
+  height: 100%;
+  background: #75d2af;
+}
+
+.app-toolbar {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+:root.wco-visible .app-toolbar {
+  top: calc(max(var(--wco-height), env(titlebar-area-height, 0px)) + 8px);
+}
+
+.app-shell[data-skin='winamp-retro'] .app-toolbar {
+  display: none;
+}
+
+.app-shell[data-skin='winamp-retro'][data-authenticated='false'] .app-toolbar {
+  display: none;
+}
+
+.toolbar-button,
+.connect-button {
+  min-width: 28px;
+  height: 26px;
+  border: 1px solid rgb(255 255 255 / 0.2);
+  border-radius: 7px;
+  color: #f4f6f8;
+  background: rgb(0 0 0 / 0.45);
+  backdrop-filter: blur(10px);
+  -webkit-app-region: no-drag;
+}
+
+.toolbar-button {
+  display: grid;
+  place-items: center;
+}
+
+.toolbar-button[data-active='true'] {
+  color: #75d2af;
+  border-color: #75d2af;
+}
+
+.connect-button {
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.connect-button:disabled {
+  cursor: default;
+  opacity: 0.65;
+}
+
+.settings-panel {
+  position: absolute;
+  top: 42px;
+  right: 8px;
+  width: min(220px, calc(100vw - 16px));
+  padding: 10px;
+  border: 1px solid rgb(255 255 255 / 0.18);
+  border-radius: 8px;
+  background: rgb(16 19 24 / 0.96);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 0.35);
+  -webkit-app-region: no-drag;
+}
+
+.settings-panel label {
+  display: block;
+  margin-bottom: 6px;
+  color: #b7c3cf;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.settings-panel select {
+  width: 100%;
+  height: 32px;
+  border: 1px solid #46515e;
+  border-radius: 7px;
+  color: #f4f6f8;
+  background: #202630;
+}
+
+.skin-note {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 6px;
+  align-items: start;
+  margin-top: 8px;
+  color: #afbac6;
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.status-line {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  max-height: 58px;
+  overflow: auto;
+  padding: 7px 9px;
+  border: 1px solid rgb(255 255 255 / 0.14);
+  border-radius: 7px;
+  color: #f2d86b;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  background: rgb(0 0 0 / 0.55);
+  font-size: 12px;
+  line-height: 1.25;
+  -webkit-app-region: no-drag;
+}

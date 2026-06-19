@@ -1,0 +1,11 @@
+{
+  "name": "SkinDeck",
+  "short_name": "SkinDeck",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "background_color": "#05060a",
+  "theme_color": "#05060a",
+  "description": "Skinnable desktop companion for Spotify playback."
+}
