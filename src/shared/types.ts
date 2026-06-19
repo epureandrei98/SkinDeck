@@ -1,6 +1,7 @@
 export type PlaybackState = {
   isPlaying: boolean;
   title: string;
+  uri?: string;
   artists: string[];
   album: string;
   albumArtUrl: string;

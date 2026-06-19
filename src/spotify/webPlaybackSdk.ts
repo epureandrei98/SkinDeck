@@ -102,6 +102,7 @@ export function mapSdkStateToPlayback(
   return {
     isPlaying: !state.paused,
     title: track.name ?? '',
+    uri: track.uri,
     artists: (track.artists ?? []).map((artist) => artist.name),
     album: track.album?.name ?? '',
     albumArtUrl: largestImage?.url ?? '',

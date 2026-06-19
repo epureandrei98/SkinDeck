@@ -147,6 +147,11 @@ export function WinampRetroSkin({
     if (row.uri) controls.playTrack(row.uri, activeQueue, contextUri);
   }
 
+  function isPlaylistRowActive(row: PlaylistRow, index: number) {
+    if (row.uri && playback.uri) return row.uri === playback.uri;
+    return !row.uri && !row.playlistId && index === 0;
+  }
+
   function toggleSpotifyConnection() {
     if (isConnecting) return;
     if (isAuthenticated) {
@@ -296,7 +301,7 @@ export function WinampRetroSkin({
             {playlistRows.map((row, index) => (
               <li
                 key={`${row.title}-${index}`}
-                className={index === 0 ? 'active' : undefined}
+                className={isPlaylistRowActive(row, index) ? 'active' : undefined}
                 data-clickable={Boolean(row.uri || row.playlistId)}
                 onClick={() => playPlaylistRow(row)}
               >
