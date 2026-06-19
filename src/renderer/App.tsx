@@ -24,13 +24,17 @@ export function App() {
   const spotify = useSpotifyPlayback(spotifyConfig);
 
   useEffect(() => {
-    window.skindeck.preferences.get().then(setPreferences);
+    window.skindeck.preferences.get().then((savedPreferences) => {
+      setPreferences(savedPreferences);
+      window.skindeck.window.setSizeForSkin(savedPreferences.selectedSkinId);
+    });
   }, []);
 
   async function selectSkin(skinId: string) {
     await window.skindeck.window.setSizeForSkin(skinId);
     const next = await window.skindeck.preferences.set({ selectedSkinId: skinId });
     setPreferences(next);
+    setSettingsOpen(false);
   }
 
   async function toggleAlwaysOnTop() {

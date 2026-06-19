@@ -2,6 +2,10 @@ import type { AppPreferences, StoredTokens } from '../shared/types';
 
 const preferenceKey = 'skindeck:preferences';
 const tokenKey = 'skindeck:tokens';
+const skinSizes: Record<string, { width: number; height: number }> = {
+  minimal: { width: 320, height: 120 },
+  'winamp-retro': { width: 275, height: 348 }
+};
 
 export function installDevMockBridge(): void {
   if (window.skindeck) return;
@@ -32,17 +36,46 @@ export function installDevMockBridge(): void {
       }
     },
     window: {
-      setAlwaysOnTop: async () => undefined,
-      setSizeForSkin: async () => undefined
+      setAlwaysOnTop: (enabled) => setTauriAlwaysOnTop(enabled),
+      setSizeForSkin: (skinId) => setTauriSizeForSkin(skinId)
     },
     runtime: {
       diagnostics: async () => ({
         versions: { chrome: getChromeVersionFromUserAgent() },
-        castlabsComponents: 'browser-mode',
+        runtime: isTauriRuntime() ? 'tauri-webview2' : 'browser',
         widevine: await getBrowserWidevineDiagnostic()
       })
     }
   };
+}
+
+function isTauriRuntime(): boolean {
+  return Boolean('__TAURI_INTERNALS__' in window);
+}
+
+async function setTauriAlwaysOnTop(enabled: boolean): Promise<void> {
+  try {
+    const { getCurrentWindow } = await import('@tauri-apps/api/window');
+    await getCurrentWindow().setAlwaysOnTop(enabled);
+  } catch (caught) {
+    console.debug('Native always-on-top update skipped.', caught);
+    // Plain browser dev mode has no native window to update.
+  }
+}
+
+async function setTauriSizeForSkin(skinId: string): Promise<void> {
+  const size = skinSizes[skinId] ?? skinSizes.minimal;
+
+  try {
+    const { LogicalSize } = await import('@tauri-apps/api/dpi');
+    const { getCurrentWindow } = await import('@tauri-apps/api/window');
+    const appWindow = getCurrentWindow();
+    await appWindow.setMinSize(new LogicalSize(size.width, size.height));
+    await appWindow.setSize(new LogicalSize(size.width, size.height));
+  } catch (caught) {
+    console.debug(`Native window resize skipped for skin "${skinId}".`, caught);
+    // Plain browser dev mode has no native window to update.
+  }
 }
 
 function startBrowserAuth(authUrl: string, redirectUri: string): Promise<string> {

@@ -40,6 +40,13 @@ button {
   -webkit-app-region: drag;
 }
 
+.app-shell[data-skin='winamp-retro'] {
+  width: 275px;
+  height: 348px;
+  overflow: hidden;
+  background: #05060a;
+}
+
 :root.wco-visible .app-shell {
   padding-top: max(var(--wco-height), env(titlebar-area-height, 0px));
 }

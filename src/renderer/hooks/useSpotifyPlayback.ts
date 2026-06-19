@@ -4,6 +4,9 @@ import {
   SpotifyApiError,
   buildAuthUrl,
   exchangeCodeForToken,
+  getPlaylistTracks,
+  getUserPlaylists,
+  playContext,
   playUris,
   refreshAccessToken,
   searchTracks,
@@ -28,6 +31,8 @@ const EMPTY_PLAYBACK: PlaybackState = {
   progressMs: 0,
   durationMs: 0
 };
+
+const BROWSER_AUTH_VERIFIER_KEY = 'skindeck:browser-auth-verifier';
 
 function isNoActivePlaybackError(caught: unknown): boolean {
   return caught instanceof SpotifyApiError && caught.status === 404;
@@ -70,6 +75,9 @@ export function useSpotifyPlayback(config: SpotifyConfig) {
   const sdkErrorRef = useRef<string | null>(null);
   const widevineDiagnosticRef = useRef<string | null>(null);
   const lastRequestedUriRef = useRef<string | null>(null);
+  const playbackQueueRef = useRef<string[]>([]);
+  const playbackQueueIndexRef = useRef(-1);
+  const playbackContextUriRef = useRef<string | undefined>();
   const lastRecoveryAttemptRef = useRef(0);
 
   useEffect(() => {
@@ -88,6 +96,41 @@ export function useSpotifyPlayback(config: SpotifyConfig) {
     await window.skindeck.tokens.set(nextTokens);
     setTokens(nextTokens);
   }, []);
+
+  useEffect(() => {
+    const currentUrl = new URL(window.location.href);
+    const code = currentUrl.searchParams.get('code');
+    const authError = currentUrl.searchParams.get('error');
+    const verifier = sessionStorage.getItem(BROWSER_AUTH_VERIFIER_KEY);
+
+    if (!code && !authError) return;
+
+    window.history.replaceState({}, document.title, window.location.pathname);
+
+    if (authError) {
+      sessionStorage.removeItem(BROWSER_AUTH_VERIFIER_KEY);
+      setError(authError);
+      return;
+    }
+
+    if (!code || !verifier) {
+      setError('Spotify authorization callback was missing the saved verifier. Try connecting again.');
+      return;
+    }
+
+    setConnecting(true);
+    exchangeCodeForToken(config, code, verifier)
+      .then(async (nextTokens) => {
+        sessionStorage.removeItem(BROWSER_AUTH_VERIFIER_KEY);
+        await saveTokens(nextTokens);
+        setError(null);
+      })
+      .catch((caught) => {
+        sessionStorage.removeItem(BROWSER_AUTH_VERIFIER_KEY);
+        setError(caught instanceof Error ? caught.message : 'Spotify authorization failed.');
+      })
+      .finally(() => setConnecting(false));
+  }, [config, saveTokens]);
 
   const ensureAccessTokenFromRef = useCallback(async () => {
     const currentTokens = tokensRef.current;
@@ -113,10 +156,25 @@ export function useSpotifyPlayback(config: SpotifyConfig) {
       const verifier = await createCodeVerifier();
       const challenge = await createCodeChallenge(verifier);
       const authUrl = buildAuthUrl(config, challenge);
+      sessionStorage.setItem(BROWSER_AUTH_VERIFIER_KEY, verifier);
       const code = await window.skindeck.auth.start(authUrl, config.redirectUri);
+      sessionStorage.removeItem(BROWSER_AUTH_VERIFIER_KEY);
       const nextTokens = await exchangeCodeForToken(config, code, verifier);
       await saveTokens(nextTokens);
     } catch (caught) {
+      if (
+        caught instanceof Error &&
+        caught.message.toLowerCase().includes('popup') &&
+        caught.message.toLowerCase().includes('blocked')
+      ) {
+        const verifier = sessionStorage.getItem(BROWSER_AUTH_VERIFIER_KEY);
+        if (verifier) {
+          const challenge = await createCodeChallenge(verifier);
+          window.location.assign(buildAuthUrl(config, challenge));
+          return;
+        }
+      }
+      sessionStorage.removeItem(BROWSER_AUTH_VERIFIER_KEY);
       setError(caught instanceof Error ? caught.message : 'Spotify authorization failed.');
     } finally {
       setConnecting(false);
@@ -195,7 +253,7 @@ export function useSpotifyPlayback(config: SpotifyConfig) {
         sdkReadyRejecterRef.current = null;
         reject(
           new SpotifyApiError(
-            'SkinDeck playback device did not become ready. Spotify Web Playback SDK may not be supported in this Electron runtime.'
+            'SkinDeck playback device did not become ready. Spotify Web Playback SDK may not be supported in this runtime.'
           )
         );
       }, 8000);
@@ -228,7 +286,7 @@ export function useSpotifyPlayback(config: SpotifyConfig) {
     const message = payload.message ?? 'Playback error';
     const reason = payload.reason ? ` reason=${payload.reason};` : '';
     const runtime = diagnostics
-      ? ` runtime=Electron ${diagnostics.versions.electron ?? 'unknown'} / Chromium ${diagnostics.versions.chrome ?? 'unknown'}; requestedComponents=${compactJson(diagnostics.castlabsComponentIds ?? [])}; whenReady=${compactJson(diagnostics.castlabsWhenReady ?? 'none')}; components=${compactJson(diagnostics.castlabsComponents ?? 'none')};`
+      ? ` runtime=${diagnostics.runtime ?? 'webview'} / Chromium ${diagnostics.versions.chrome ?? 'unknown'};`
       : '';
 
     const detailedMessage = `SDK playback_error: ${message};${reason} payload=${compactJson(payload)}; ${describeSdkState(state)}; device=${sdkDeviceIdRef.current ?? 'none'};${runtime}`;
@@ -245,9 +303,7 @@ export function useSpotifyPlayback(config: SpotifyConfig) {
 
     assertWidevineAvailable().catch(async (caught) => {
       const diagnostics = await window.skindeck.runtime.diagnostics();
-      const versionText = `Electron ${diagnostics.versions.electron ?? 'unknown'} / Chromium ${
-        diagnostics.versions.chrome ?? 'unknown'
-      }`;
+      const versionText = `Chromium ${diagnostics.versions.chrome ?? 'unknown'}`;
       const widevineText = diagnostics.widevine
         ? `Widevine ${diagnostics.widevine.version}`
         : 'no Widevine CDM detected';
@@ -307,7 +363,7 @@ export function useSpotifyPlayback(config: SpotifyConfig) {
         });
         player.addListener('initialization_error', ({ message }) =>
           failSdkStartup(
-            `${message} ${widevineDiagnosticRef.current ?? 'Spotify Web Playback SDK may not be supported in this Electron runtime.'}`
+            `${message} ${widevineDiagnosticRef.current ?? 'Spotify Web Playback SDK may not be supported in this runtime.'}`
           )
         );
         player.addListener('authentication_error', async ({ message }) => {
@@ -429,8 +485,36 @@ export function useSpotifyPlayback(config: SpotifyConfig) {
           await player.activateElement();
           await player.togglePlay();
         }),
-      nextTrack: () => runSdkControl((player) => player.nextTrack()),
-      previousTrack: () => runSdkControl((player) => player.previousTrack()),
+      nextTrack: async () => {
+        const queue = playbackQueueRef.current;
+        const nextIndex = playbackQueueIndexRef.current + 1;
+        if (queue.length > 1 && nextIndex < queue.length) {
+          playbackQueueIndexRef.current = nextIndex;
+          lastRequestedUriRef.current = queue[nextIndex];
+          const accessToken = await ensureAccessTokenFromRef();
+          const deviceId = await waitForSdkDevice();
+          await playUris(accessToken, queue, deviceId, nextIndex, playbackContextUriRef.current);
+          await new Promise((resolve) => window.setTimeout(resolve, 500));
+          await updateFromSdkState((await playerRef.current?.getCurrentState()) ?? null);
+          return;
+        }
+        await runSdkControl((player) => player.nextTrack());
+      },
+      previousTrack: async () => {
+        const queue = playbackQueueRef.current;
+        const previousIndex = playbackQueueIndexRef.current - 1;
+        if (queue.length > 1 && previousIndex >= 0) {
+          playbackQueueIndexRef.current = previousIndex;
+          lastRequestedUriRef.current = queue[previousIndex];
+          const accessToken = await ensureAccessTokenFromRef();
+          const deviceId = await waitForSdkDevice();
+          await playUris(accessToken, queue, deviceId, previousIndex, playbackContextUriRef.current);
+          await new Promise((resolve) => window.setTimeout(resolve, 500));
+          await updateFromSdkState((await playerRef.current?.getCurrentState()) ?? null);
+          return;
+        }
+        await runSdkControl((player) => player.previousTrack());
+      },
       seek: (positionMs) => runSdkControl((player) => player.seek(positionMs)),
       setVolume: async (volume) => {
         try {
@@ -471,13 +555,62 @@ export function useSpotifyPlayback(config: SpotifyConfig) {
           return [];
         }
       },
-      playTrack: async (uri) => {
+      getPlaylists: async () => {
         try {
+          const accessToken = await ensureAccessTokenFromRef();
+          setError(null);
+          return await getUserPlaylists(accessToken);
+        } catch (caught) {
+          setError(caught instanceof Error ? caught.message : 'Could not load Spotify playlists.');
+          return [];
+        }
+      },
+      getPlaylistTracks: async (playlistId) => {
+        try {
+          const accessToken = await ensureAccessTokenFromRef();
+          setError(null);
+          return await getPlaylistTracks(accessToken, playlistId);
+        } catch (caught) {
+          setError(caught instanceof Error ? caught.message : 'Could not load playlist tracks.');
+          return [];
+        }
+      },
+      playPlaylist: async (playlistId) => {
+        try {
+          const contextUri = `spotify:playlist:${playlistId}`;
+          playbackQueueRef.current = [];
+          playbackQueueIndexRef.current = -1;
+          playbackContextUriRef.current = contextUri;
+          const accessToken = await ensureAccessTokenFromRef();
+          const deviceId = await waitForSdkDevice();
+          await playerRef.current?.activateElement();
+          await playContext(accessToken, contextUri, deviceId);
+          sdkTransferredRef.current = true;
+          await new Promise((resolve) => window.setTimeout(resolve, 500));
+          await updateFromSdkState((await playerRef.current?.getCurrentState()) ?? null);
+          setError(null);
+        } catch (caught) {
+          setError(caught instanceof Error ? caught.message : 'Could not start Spotify playlist.');
+        }
+      },
+      playTrack: async (uri, queueUris = [uri], contextUri) => {
+        try {
+          const queue = queueUris.length ? queueUris : [uri];
+          const queueIndex = Math.max(0, queue.indexOf(uri));
+          playbackQueueRef.current = queue;
+          playbackQueueIndexRef.current = queueIndex;
+          playbackContextUriRef.current = contextUri;
           lastRequestedUriRef.current = uri;
           const accessToken = await ensureAccessTokenFromRef();
           const deviceId = await waitForSdkDevice();
           await playerRef.current?.activateElement();
-          await playUris(accessToken, [uri], deviceId);
+          try {
+            await playUris(accessToken, queue, deviceId, queueIndex, contextUri);
+          } catch (caught) {
+            if (!(caught instanceof SpotifyApiError) || caught.status !== 403 || !contextUri) throw caught;
+            playbackContextUriRef.current = undefined;
+            await playUris(accessToken, queue, deviceId, queueIndex);
+          }
           sdkTransferredRef.current = true;
           await new Promise((resolve) => window.setTimeout(resolve, 500));
           const state = await playerRef.current?.getCurrentState();

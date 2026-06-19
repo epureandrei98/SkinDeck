@@ -13,7 +13,7 @@ This project is not affiliated with Spotify. It uses Spotify APIs to control and
 - Local skin switching with persisted selection
 - Minimal and Winamp-inspired starter skins
 - Always-on-top toggle
-- Local encrypted token persistence through Electron `safeStorage` when available
+- Tauri/WebView2 desktop shell with local token and preference persistence
 
 ## Setup
 
@@ -44,41 +44,20 @@ This project is not affiliated with Spotify. It uses Spotify APIs to control and
    npm run dev
    ```
 
-## Edge Dev Window Size
+## WebView2 Widevine Experiment
 
-You can launch the Edge wrapper at a fixed size and position:
+The Tauri shell passes Chromium-style arguments to WebView2 before the app window is created:
 
-```bash
-npm run dev:edge:frameless -- --size=1280,720 --position=120,80
+```txt
+--autoplay-policy=no-user-gesture-required --enable-widevine-cdm
 ```
 
-You can also use environment variables:
+To test another set of WebView2 arguments:
 
 ```powershell
-$env:SKINDECK_EDGE_SIZE = "1280,720"
-$env:SKINDECK_EDGE_POSITION = "120,80"
-npm run dev:edge:frameless
+$env:SKINDECK_WEBVIEW2_ARGS = "--autoplay-policy=no-user-gesture-required --enable-widevine-cdm"
+npm run dev
 ```
-
-Note: true `--kiosk` mode is intentionally fullscreen by design. For a windowed kiosk-like shell, use `dev:edge:frameless` with `--size` and `--position`.
-
-## Window Controls Overlay (PWA)
-
-This project manifest already opts in to Window Controls Overlay with:
-
-```json
-"display_override": ["window-controls-overlay", "standalone"]
-```
-
-Important: the overlay is only available for an installed desktop PWA window. It does not activate for plain browser tabs, and it may not activate for ad-hoc `--app=<url>` launches.
-
-To use it:
-
-1. Start the renderer (`npm run dev:renderer`) or a production host for the same origin.
-2. Open that origin in Edge and install it as an app.
-3. Launch the installed app window from Edge/apps list or Start menu.
-
-When the overlay is active, SkinDeck now adjusts top spacing automatically so content does not sit under the window buttons.
 
 ## Spotify Scopes
 
@@ -90,8 +69,10 @@ SkinDeck requests:
 - `user-modify-playback-state`
 - `user-read-email`
 - `user-read-private`
+- `playlist-read-private`
+- `playlist-read-collaborative`
 
-Playback controls use Spotify's official Web API and Web Playback SDK. The SDK creates a Spotify Connect device inside the app and requires Spotify Premium. If you authenticated before SDK support was added, disconnect/reconnect so Spotify can approve the new `streaming` scope.
+Playback controls use Spotify's official Web API and Web Playback SDK. The SDK creates a Spotify Connect device inside the app and requires Spotify Premium. If you authenticated before SDK or playlist support was added, disconnect/reconnect so Spotify can approve the latest scopes.
 
 ## Adding a Skin
 
@@ -140,11 +121,10 @@ Example manifest:
 
 ```txt
 src/
-  main/        Electron window, auth popup, encrypted local persistence
-  preload/     Safe IPC bridge exposed to the renderer
   renderer/    React app, settings, skins
   shared/      Shared types and skin manifests
   spotify/     OAuth PKCE and Spotify Web API wrapper
+src-tauri/      Tauri Rust shell and WebView2 configuration
 ```
 
 ## MVP Boundaries

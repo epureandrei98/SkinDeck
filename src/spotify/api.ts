@@ -1,4 +1,4 @@
-import type { PlaybackState, SpotifyTrackSearchResult, StoredTokens } from '../shared/types';
+import type { PlaybackState, SpotifyPlaylist, SpotifyTrackSearchResult, StoredTokens } from '../shared/types';
 
 const API_BASE = 'https://api.spotify.com/v1';
 const TOKEN_URL = 'https://accounts.spotify.com/api/token';
@@ -8,7 +8,9 @@ const SCOPES = [
   'user-read-playback-state',
   'user-modify-playback-state',
   'user-read-email',
-  'user-read-private'
+  'user-read-private',
+  'playlist-read-private',
+  'playlist-read-collaborative'
 ];
 
 export type SpotifyConfig = {
@@ -96,14 +98,43 @@ export async function play(accessToken: string): Promise<void> {
   await apiFetch('/me/player/play', accessToken, { method: 'PUT' });
 }
 
-export async function playUris(accessToken: string, uris: string[], deviceId?: string): Promise<void> {
+export async function playUris(
+  accessToken: string,
+  uris: string[],
+  deviceId?: string,
+  offsetPosition = 0,
+  contextUri?: string
+): Promise<void> {
+  const params = deviceId ? `?${new URLSearchParams({ device_id: deviceId }).toString()}` : '';
+  const offset = Math.max(0, Math.min(offsetPosition, uris.length - 1));
+  const body = contextUri
+    ? {
+        context_uri: contextUri,
+        offset: { uri: uris[offset] },
+        position_ms: 0
+      }
+    : {
+        uris,
+        offset: { position: offset }
+      };
+
+  await apiFetch(`/me/player/play${params}`, accessToken, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(body)
+  });
+}
+
+export async function playContext(accessToken: string, contextUri: string, deviceId?: string): Promise<void> {
   const params = deviceId ? `?${new URLSearchParams({ device_id: deviceId }).toString()}` : '';
   await apiFetch(`/me/player/play${params}`, accessToken, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ uris })
+    body: JSON.stringify({ context_uri: contextUri })
   });
 }
 
@@ -156,6 +187,35 @@ export async function searchTracks(accessToken: string, query: string): Promise<
   }));
 }
 
+export async function getUserPlaylists(accessToken: string): Promise<SpotifyPlaylist[]> {
+  const response = await apiFetch('/me/playlists?limit=20', accessToken);
+  const data = await response.json();
+
+  return (data.items ?? []).map((playlist: any) => ({
+    id: playlist.id,
+    name: playlist.name,
+    trackCount: playlist.tracks?.total ?? 0
+  }));
+}
+
+export async function getPlaylistTracks(accessToken: string, playlistId: string): Promise<SpotifyTrackSearchResult[]> {
+  const response = await apiFetch(`/playlists/${encodeURIComponent(playlistId)}/items?limit=50`, accessToken);
+  const data = await response.json();
+
+  return (data.items ?? [])
+    .map((item: any) => item.track)
+    .filter((track: any) => track?.type === 'track' && track.uri && !track.is_local && track.is_playable !== false)
+    .map((track: any) => ({
+      id: track.id,
+      uri: track.uri,
+      title: track.name,
+      artists: (track.artists ?? []).map((artist: { name: string }) => artist.name),
+      album: track.album?.name ?? '',
+      durationMs: track.duration_ms ?? 0,
+      isPlayable: track.is_playable !== false
+    }));
+}
+
 async function requestToken(body: URLSearchParams): Promise<StoredTokens> {
   const response = await fetch(TOKEN_URL, {
     method: 'POST',
@@ -206,7 +266,11 @@ async function getFriendlyError(response: Response): Promise<string> {
   }
 
   if (status === 401) return 'Your Spotify session expired. Please reconnect.';
-  if (status === 403) return 'Spotify blocked this action. Playback controls may require Premium.';
+  if (status === 403) {
+    return spotifyMessage
+      ? `Spotify blocked this action.${spotifyMessage}`
+      : 'Spotify blocked this action. Reconnect Spotify so SkinDeck can request the latest permissions.';
+  }
   if (status === 404) return `No active Spotify device was found.${spotifyMessage}`;
   if (status === 429) return 'Spotify rate-limited requests. Waiting before trying again.';
   return `Spotify returned an unexpected error.${spotifyMessage}`;

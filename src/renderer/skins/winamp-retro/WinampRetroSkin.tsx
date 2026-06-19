@@ -1,5 +1,5 @@
 import { useState, type CSSProperties, type FormEvent, type MouseEvent } from 'react';
-import type { SpotifyTrackSearchResult } from '../../../shared/types';
+import type { SpotifyPlaylist, SpotifyTrackSearchResult } from '../../../shared/types';
 import type { SkinProps } from '../SkinProps';
 import { formatDuration, progressPercent } from '../../utils/time';
 
@@ -10,8 +10,11 @@ const eqValues = [82, 40, 70, 67, 72, 69, 76, 73, 80, 78];
 type PlaylistRow = {
   title: string;
   duration: string;
+  playlistId?: string;
   uri?: string;
 };
+
+type ListMode = 'default' | 'search' | 'playlists' | 'playlist-tracks';
 
 export function WinampRetroSkin({
   playback,
@@ -25,13 +28,25 @@ export function WinampRetroSkin({
 }: SkinProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SpotifyTrackSearchResult[]>([]);
+  const [playlists, setPlaylists] = useState<SpotifyPlaylist[]>([]);
+  const [playlistTracks, setPlaylistTracks] = useState<SpotifyTrackSearchResult[]>([]);
+  const [activePlaylistId, setActivePlaylistId] = useState<string | null>(null);
+  const [listMode, setListMode] = useState<ListMode>('default');
   const [isSearching, setSearching] = useState(false);
+  const [isLoadingPlaylists, setLoadingPlaylists] = useState(false);
   const timeText = playback.durationMs ? formatDuration(playback.progressMs) : '00:00';
   const titleText = `${playback.artists[0] ?? 'SKINDECK'} - ${playback.title || 'NO ACTIVE TRACK'}`;
   const currentTitle = `${playback.artists.join(', ') || 'SkinDeck'} - ${playback.title || 'No active track'}`;
   const currentDuration = playback.durationMs ? formatDuration(playback.durationMs) : '--:--';
-  const playlistRows: PlaylistRow[] = searchResults.length
-    ? searchResults.map((track) => ({
+  const activeTrackRows = listMode === 'playlist-tracks' ? playlistTracks : listMode === 'search' ? searchResults : [];
+  const playlistRows: PlaylistRow[] = listMode === 'playlists'
+    ? playlists.map((playlist) => ({
+        title: playlist.name,
+        duration: String(Math.min(999, playlist.trackCount)).padStart(3, '0'),
+        playlistId: playlist.id
+      }))
+    : activeTrackRows.length
+    ? activeTrackRows.map((track) => ({
         title: `${track.artists.join(', ')} - ${track.title}`,
         duration: formatDuration(track.durationMs),
         uri: track.uri
@@ -41,7 +56,8 @@ export function WinampRetroSkin({
         { title: 'Search Spotify From This Playlist', duration: '2:22' },
         { title: 'Type Below And Press Enter', duration: '3:10' },
         { title: 'Click A Result To Play It Here', duration: '3:34' }
-      ];
+    ];
+  const activeQueue = activeTrackRows.map((track) => track.uri);
   const volumePercent = Math.round((playback.volume ?? 0.7) * 100);
 
   function seekFromClick(event: MouseEvent<HTMLDivElement>) {
@@ -63,13 +79,50 @@ export function WinampRetroSkin({
     try {
       const results = await controls.searchTracks(searchQuery);
       setSearchResults(results);
+      setListMode('search');
     } finally {
       setSearching(false);
     }
   }
 
-  function playPlaylistRow(row: { uri?: string }) {
-    if (row.uri) controls.playTrack(row.uri);
+  async function loadPlaylists() {
+    if (!isAuthenticated || isLoadingPlaylists) return;
+    setLoadingPlaylists(true);
+    try {
+      const nextPlaylists = await controls.getPlaylists();
+      setPlaylists(nextPlaylists);
+      setListMode('playlists');
+    } finally {
+      setLoadingPlaylists(false);
+    }
+  }
+
+  async function openPlaylist(playlistId: string) {
+    setLoadingPlaylists(true);
+    try {
+      const tracks = await controls.getPlaylistTracks(playlistId);
+      if (!tracks.length) {
+        await controls.playPlaylist(playlistId);
+        setActivePlaylistId(playlistId);
+        setListMode('playlists');
+        return;
+      }
+      setPlaylistTracks(tracks);
+      setActivePlaylistId(playlistId);
+      setListMode('playlist-tracks');
+    } finally {
+      setLoadingPlaylists(false);
+    }
+  }
+
+  function playPlaylistRow(row: PlaylistRow) {
+    if (row.playlistId) {
+      openPlaylist(row.playlistId);
+      return;
+    }
+
+    const contextUri = listMode === 'playlist-tracks' && activePlaylistId ? `spotify:playlist:${activePlaylistId}` : undefined;
+    if (row.uri) controls.playTrack(row.uri, activeQueue, contextUri);
   }
 
   function toggleSpotifyConnection() {
@@ -210,7 +263,7 @@ export function WinampRetroSkin({
               <li
                 key={`${row.title}-${index}`}
                 className={index === 0 ? 'active' : undefined}
-                data-clickable={Boolean(row.uri)}
+                data-clickable={Boolean(row.uri || row.playlistId)}
                 onClick={() => playPlaylistRow(row)}
               >
                 <span>{index + 1}. {row.title}</span>
@@ -221,7 +274,9 @@ export function WinampRetroSkin({
           <div className="retro-scrollbar" aria-hidden="true"><span /></div>
         </div>
         <div className="retro-playlist-footer">
-          <span>ADD</span>
+          <button type="button" onClick={loadPlaylists} disabled={!isAuthenticated || isLoadingPlaylists}>
+            PL
+          </button>
           <span>REM</span>
           <span>SEL</span>
           <span>MISC</span>

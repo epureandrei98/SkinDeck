@@ -20,7 +20,10 @@ export type PlaybackControls = {
   setVolume(volume: number): Promise<void>;
   activateSkinDeckPlayback(): Promise<void>;
   searchTracks(query: string): Promise<SpotifyTrackSearchResult[]>;
-  playTrack(uri: string): Promise<void>;
+  getPlaylists(): Promise<SpotifyPlaylist[]>;
+  getPlaylistTracks(playlistId: string): Promise<SpotifyTrackSearchResult[]>;
+  playPlaylist(playlistId: string): Promise<void>;
+  playTrack(uri: string, queueUris?: string[], contextUri?: string): Promise<void>;
 };
 
 export type SpotifyTrackSearchResult = {
@@ -30,6 +33,13 @@ export type SpotifyTrackSearchResult = {
   artists: string[];
   album: string;
   durationMs: number;
+  isPlayable?: boolean;
+};
+
+export type SpotifyPlaylist = {
+  id: string;
+  name: string;
+  trackCount: number;
 };
 
 export type StoredTokens = {
@@ -58,16 +68,34 @@ export type SkinManifest = {
 };
 
 export type RuntimeDiagnostics = {
-  castlabsComponents?: unknown;
-  castlabsWhenReady?: unknown;
-  castlabsComponentIds?: string[];
+  runtime?: string;
   widevine?: {
     path: string;
     version: string;
   };
   versions: {
-    electron?: string;
     chrome?: string;
-    node?: string;
+  };
+};
+
+export type SkinDeckApi = {
+  auth: {
+    start(authUrl: string, redirectUri: string): Promise<string>;
+  };
+  tokens: {
+    get(): Promise<StoredTokens | null>;
+    set(tokens: StoredTokens): Promise<void>;
+    clear(): Promise<void>;
+  };
+  preferences: {
+    get(): Promise<AppPreferences>;
+    set(preferences: Partial<AppPreferences>): Promise<AppPreferences>;
+  };
+  window: {
+    setAlwaysOnTop(enabled: boolean): Promise<void>;
+    setSizeForSkin(skinId: string): Promise<void>;
+  };
+  runtime: {
+    diagnostics(): Promise<RuntimeDiagnostics>;
   };
 };

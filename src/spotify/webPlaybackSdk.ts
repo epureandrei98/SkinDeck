@@ -116,7 +116,7 @@ export function mapSdkStateToPlayback(
 
 export async function assertWidevineAvailable(): Promise<void> {
   if (!navigator.requestMediaKeySystemAccess) {
-    throw new Error('Widevine check failed: Electron does not expose Encrypted Media Extensions.');
+    throw new Error('Widevine check failed: this runtime does not expose Encrypted Media Extensions.');
   }
 
   await navigator.requestMediaKeySystemAccess('com.widevine.alpha', [
