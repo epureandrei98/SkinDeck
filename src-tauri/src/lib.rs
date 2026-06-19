@@ -1,9 +1,13 @@
+mod audio_meter;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     configure_webview2_widevine_args();
 
     tauri::Builder::default()
         .setup(|app| {
+            audio_meter::start_audio_meter(app.handle().clone());
+
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()

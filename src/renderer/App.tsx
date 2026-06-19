@@ -2,6 +2,7 @@ import { MonitorUp, Power, Settings, Star } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { skinManifests } from '../shared/skins';
 import type { AppPreferences } from '../shared/types';
+import { useAudioOutputLevels } from './hooks/useAudioOutputLevels';
 import { useSpotifyPlayback } from './hooks/useSpotifyPlayback';
 import { SkinHost } from './skins/SkinHost';
 
@@ -22,6 +23,7 @@ export function App() {
   );
 
   const spotify = useSpotifyPlayback(spotifyConfig);
+  const audioLevels = useAudioOutputLevels();
 
   useEffect(() => {
     window.skindeck.preferences.get().then((savedPreferences) => {
@@ -50,6 +52,7 @@ export function App() {
         <SkinHost
           skinId={preferences.selectedSkinId}
           playback={spotify.playback}
+          audioLevels={audioLevels}
           controls={spotify.controls}
           isAuthenticated={spotify.isAuthenticated}
           isConnecting={spotify.isConnecting}

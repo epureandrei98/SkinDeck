@@ -1,3 +1,4 @@
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useState, type CSSProperties, type FormEvent, type MouseEvent } from 'react';
 import type { SpotifyPlaylist, SpotifyTrackSearchResult } from '../../../shared/types';
 import type { SkinProps } from '../SkinProps';
@@ -18,6 +19,7 @@ type ListMode = 'default' | 'search' | 'playlists' | 'playlist-tracks';
 
 export function WinampRetroSkin({
   playback,
+  audioLevels,
   controls,
   isAuthenticated,
   isConnecting,
@@ -59,6 +61,9 @@ export function WinampRetroSkin({
     ];
   const activeQueue = activeTrackRows.map((track) => track.uri);
   const volumePercent = Math.round((playback.volume ?? 0.7) * 100);
+  const liveSpectrum = audioLevels.bands.length
+    ? audioLevels.bands.slice(0, spectrum.length).map((level) => Math.round(Math.max(4, Math.min(100, level * 100))))
+    : spectrum;
 
   function seekFromClick(event: MouseEvent<HTMLDivElement>) {
     if (!playback.durationMs) return;
@@ -135,10 +140,17 @@ export function WinampRetroSkin({
     connect();
   }
 
+  function startWindowDrag(event: MouseEvent<HTMLElement>) {
+    if (event.button !== 0) return;
+    const target = event.target as HTMLElement;
+    if (target.closest('button, input, select, textarea, [data-no-window-drag]')) return;
+    getCurrentWindow().startDragging();
+  }
+
   return (
     <section className="skin retro-skin">
       <div className="retro-window retro-main-window" data-playing={playback.isPlaying}>
-        <div className="retro-titlebar">
+        <div className="retro-titlebar" onMouseDown={startWindowDrag}>
           <span className="retro-zigzag" aria-hidden="true" />
           <span className="retro-caption">WINAMP</span>
           <span className="retro-top-buttons">
@@ -168,8 +180,8 @@ export function WinampRetroSkin({
               <span>-6</span>
               <span>-12</span>
             </div>
-            <div className="retro-spectrum" aria-hidden="true">
-              {spectrum.map((height, index) => (
+            <div className="retro-spectrum" aria-hidden="true" data-live={audioLevels.peak > 0.01}>
+              {liveSpectrum.map((height, index) => (
                 <i
                   key={index}
                   style={
@@ -226,7 +238,7 @@ export function WinampRetroSkin({
       </div>
 
       <div className="retro-window retro-eq-window">
-        <div className="retro-panel-title">WINAMP EQUALIZER</div>
+        <div className="retro-panel-title" onMouseDown={startWindowDrag}>WINAMP EQUALIZER</div>
         <div className="retro-eq-body">
           <div className="retro-eq-switches">
             <span>ON</span>
@@ -256,7 +268,7 @@ export function WinampRetroSkin({
       </div>
 
       <div className="retro-window retro-playlist-window">
-        <div className="retro-panel-title">WINAMP PLAYLIST</div>
+        <div className="retro-panel-title" onMouseDown={startWindowDrag}>WINAMP PLAYLIST</div>
         <div className="retro-playlist-body">
           <ol className="retro-playlist">
             {playlistRows.map((row, index) => (

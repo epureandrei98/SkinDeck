@@ -12,6 +12,11 @@ export type PlaybackState = {
   isSdkReady?: boolean;
 };
 
+export type AudioOutputLevels = {
+  peak: number;
+  bands: number[];
+};
+
 export type PlaybackControls = {
   togglePlayPause(): Promise<void>;
   nextTrack(): Promise<void>;

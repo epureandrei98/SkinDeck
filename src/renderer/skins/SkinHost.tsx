@@ -1,10 +1,11 @@
-import type { PlaybackControls, PlaybackState } from '../../shared/types';
+import type { AudioOutputLevels, PlaybackControls, PlaybackState } from '../../shared/types';
 import { MinimalSkin } from './minimal/MinimalSkin';
 import { WinampRetroSkin } from './winamp-retro/WinampRetroSkin';
 
 type SkinHostProps = {
   skinId: string;
   playback: PlaybackState;
+  audioLevels: AudioOutputLevels;
   controls: PlaybackControls;
   isAuthenticated: boolean;
   isConnecting: boolean;

@@ -143,12 +143,22 @@
   width: 2px;
   min-height: 2px;
   height: var(--bar-height);
-  background: linear-gradient(#d8dd47 0 18%, #00ff33 18% 100%);
+  background: linear-gradient(to top, #00ff33 0 62%, #ffd43b 76%, #ff3b22 100%);
+  background-position: bottom;
+  background-repeat: no-repeat;
+  background-size: 100% 29px;
 }
 
 .retro-main-window[data-playing='true'] .retro-spectrum i {
   animation: retro-spectrum-bounce 520ms steps(4, end) infinite;
   animation-delay: var(--bar-delay);
+}
+
+.retro-main-window[data-playing='true'] .retro-spectrum[data-live='true'] i,
+.retro-spectrum[data-live='true'] i {
+  animation: none;
+  animation-delay: 0ms;
+  transition: height 42ms steps(3, end);
 }
 
 .retro-main-window[data-playing='false'] .retro-spectrum i {
