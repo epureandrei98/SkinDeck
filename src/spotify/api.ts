@@ -199,21 +199,41 @@ export async function getUserPlaylists(accessToken: string): Promise<SpotifyPlay
 }
 
 export async function getPlaylistTracks(accessToken: string, playlistId: string): Promise<SpotifyTrackSearchResult[]> {
-  const response = await apiFetch(`/playlists/${encodeURIComponent(playlistId)}/items?limit=50`, accessToken);
-  const data = await response.json();
+  const playlistTracks: SpotifyTrackSearchResult[] = [];
+  const limit = 50;
+  let offset = 0;
+  let total = Number.POSITIVE_INFINITY;
 
-  return (data.items ?? [])
-    .map((item: any) => item.track)
-    .filter((track: any) => track?.type === 'track' && track.uri && !track.is_local && track.is_playable !== false)
-    .map((track: any) => ({
-      id: track.id,
-      uri: track.uri,
-      title: track.name,
-      artists: (track.artists ?? []).map((artist: { name: string }) => artist.name),
-      album: track.album?.name ?? '',
-      durationMs: track.duration_ms ?? 0,
-      isPlayable: track.is_playable !== false
-    }));
+  while (offset < total) {
+    const params = new URLSearchParams({
+      limit: String(limit),
+      offset: String(offset)
+    });
+    const response = await apiFetch(`/playlists/${encodeURIComponent(playlistId)}/items?${params.toString()}`, accessToken);
+    const data = await response.json();
+    const items = data.items ?? [];
+
+    playlistTracks.push(
+      ...items
+        .map((playlistItem: any) => playlistItem.item ?? playlistItem.track)
+        .filter((entry: any) => entry?.type === 'track' && entry.uri && !entry.is_local && entry.is_playable !== false)
+        .map((track: any) => ({
+          id: track.id,
+          uri: track.uri,
+          title: track.name,
+          artists: (track.artists ?? []).map((artist: { name: string }) => artist.name),
+          album: track.album?.name ?? '',
+          durationMs: track.duration_ms ?? 0,
+          isPlayable: track.is_playable !== false
+        }))
+    );
+
+    total = Number(data.total ?? items.length);
+    if (!items.length) break;
+    offset += items.length;
+  }
+
+  return playlistTracks;
 }
 
 async function requestToken(body: URLSearchParams): Promise<StoredTokens> {
